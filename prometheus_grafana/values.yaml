@@ -1,0 +1,6 @@
+prometheus:
+  server:
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+

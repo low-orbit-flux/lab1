@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app1
+  labels:
+    app: app1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app1
+  template:
+    metadata:
+      labels:
+        app: app1
+    spec:
+      containers:
+      - name: app1
+        image: 192.168.3.228:30844/app1:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+            ephemeral-storage: "2Gi"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+            ephemeral-storage: "4Gi"
+        volumeMounts:
+        - name: ephemeral
+          mountPath: "/tmp"
+      volumes:
+        - name: ephemeral
+          emptyDir:
+            sizeLimit: 500Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app1
+spec:
+  selector:
+    app: app1
+  ports:
+    - protocol: TCP
+      port: 8000
+  type: NodePort
+

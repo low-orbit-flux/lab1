@@ -1,0 +1,30 @@
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: prom-ingress
+spec:
+  entryPoints:
+    - web
+  routes:
+  - match: "Host(`prom1`)"
+    kind: Rule
+    services:
+    - name: prometheus-stack-kube-prom-prometheus
+      port: 9090
+
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: graf-ingress
+spec:
+  entryPoints:
+    - web
+  routes:
+  - match: "Host(`graf1`)"
+    kind: Rule
+    services:
+    - name: prometheus-stack-grafana
+      port: 80
+
