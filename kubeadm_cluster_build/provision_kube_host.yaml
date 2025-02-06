@@ -1,0 +1,110 @@
+---
+- name: Provision kubernetes hosts
+  hosts: kube
+  become: yes
+  vars:
+    master_node1_name: kube-test1
+    master_node1_ip: 192.168.3.220
+
+  tasks:
+
+    - template:
+        src: templates/k8s.conf.j2 
+        dest: /etc/sysctl.d/k8s.conf
+        mode: a+r
+
+    - name: Enable variables 
+      command: sysctl --system
+    
+    - name: Disable Swap
+      command: swapoff -a
+
+    - name: Remove swap from fstab
+      ansible.builtin.lineinfile:
+        path: /etc/fstab
+        state: absent
+        regexp: '^swap'
+
+    - name: Remove Swap File
+      ansible.builtin.file:
+        path: /swap.img
+        state: absent
+
+    - name: Install prereqs for repo
+      ansible.builtin.apt:
+        name: 
+          - apt-transport-https 
+          - ca-certificates 
+          - curl
+        update_cache: yes
+
+    - name: Download Key
+      ansible.builtin.get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.28/deb/Release.key
+        dest: /tmp/Release.key
+        mode: '0640'
+
+    - name: Dearmor Key
+      shell: '/usr/bin/cat /tmp/Release.key | /usr/bin/gpg --batch --yes --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg'
+
+    - name: Add Repo
+      template: 
+        src: templates/kubernetes.list.j2
+        dest: /etc/apt/sources.list.d/kubernetes.list
+        mode: ug+r
+
+    - name: Install kubelet kubeadm kubectl
+      ansible.builtin.apt: 
+        name: 
+          - kubelet 
+          - kubeadm 
+          - kubectl
+        update_cache: yes
+
+    - name: Pin Package
+      ansible.builtin.dpkg_selections:
+        name: kubelet
+        selection: hold
+    - name: Pin Package
+      ansible.builtin.dpkg_selections:
+        name: kubeadm 
+        selection: hold
+    - name: Pin Package
+      ansible.builtin.dpkg_selections:
+        name: kubectl
+        selection: hold
+
+
+
+    - name: Install Docker
+      ansible.builtin.apt: 
+        name: docker.io
+        update_cache: yes
+    
+    - name: Docker Cgroup Driver Config
+      ansible.builtin.lineinfile:
+        path: /lib/systemd/system/docker.service
+        regexp: '^ExecStart=/usr/bin/dockerd'
+        line: 'ExecStart=/usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock --exec-opt native.cgroupdriver=systemd'
+
+    - name: Reload and Restart Docker
+      ansible.builtin.systemd:
+        state: restarted
+        daemon_reload: true
+        name: docker
+
+    - name: Hosts file
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: "^{{ master_node1_ip }}"
+        line: "{{ master_node1_ip }} {{ master_node1_name }} cluster-endpoint"
+
+    - name: Initialize Cluster
+      command: kubeadm init --control-plane-endpoint=cluster-endpoint --pod-network-cidr=10.244.0.0/16
+
+
+
+
+
+
+
